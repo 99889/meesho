@@ -58,7 +58,16 @@ async def upload_image(
     Upload a single image or document file
     """
     # Only sellers and admins can upload files
-    if current_user["role"] not in ["seller", "admin"]:
+    user_role = current_user.get("role")
+    if not user_role:
+        # If role is not in token, fetch user from database to check role
+        from server import db
+        user_data = await db.users.find_one({"id": current_user["user_id"]})
+        if not user_data:
+            raise HTTPException(status_code=403, detail="Not authorized to upload files")
+        user_role = user_data.get("role")
+    
+    if user_role not in ["seller", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized to upload files")
     
     # Validate file
@@ -74,8 +83,8 @@ async def upload_image(
         content = await file.read()
         buffer.write(content)
     
-    # Return URL to access the file
-    file_url = f"/uploads/{filename}"
+    # Return full URL to access the file
+    file_url = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/uploads/{filename}"
     return {"url": file_url, "filename": filename, "type": file_type}
 
 @router.post("/images/bulk")
@@ -87,7 +96,16 @@ async def upload_multiple_images(
     Upload multiple image or document files
     """
     # Only sellers and admins can upload files
-    if current_user["role"] not in ["seller", "admin"]:
+    user_role = current_user.get("role")
+    if not user_role:
+        # If role is not in token, fetch user from database to check role
+        from server import db
+        user_data = await db.users.find_one({"id": current_user["user_id"]})
+        if not user_data:
+            raise HTTPException(status_code=403, detail="Not authorized to upload files")
+        user_role = user_data.get("role")
+    
+    if user_role not in ["seller", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized to upload files")
     
     uploaded_files = []
@@ -106,8 +124,8 @@ async def upload_multiple_images(
             content = await file.read()
             buffer.write(content)
         
-        # Store file info
-        file_url = f"/uploads/{filename}"
+        # Store file info with full URL
+        file_url = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/uploads/{filename}"
         uploaded_files.append({
             "url": file_url, 
             "filename": filename,

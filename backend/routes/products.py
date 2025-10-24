@@ -92,8 +92,13 @@ async def create_product(
     if user_role not in ["seller", "admin"]:
         raise HTTPException(status_code=403, detail="Not authorized to create products")
     
+    # Prepare product data, ensuring we don't pass seller_name twice
+    product_dict = product_data.dict()
+    # Remove seller_name from product_dict if it exists to avoid duplication
+    product_dict.pop("seller_name", None)
+    
     product = Product(
-        **product_data.dict(),
+        **product_dict,
         seller_id=current_user["user_id"],
         seller_name=current_user.get("name", "Unknown Seller")  # Auto-fill seller name
     )

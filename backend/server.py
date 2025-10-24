@@ -46,10 +46,11 @@ app = FastAPI(lifespan=lifespan)
 # ADD CORS MIDDLEWARE FIRST (before routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 # Create a router with the /api prefix

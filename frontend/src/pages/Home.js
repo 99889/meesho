@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Star, Filter, ChevronDown } from 'lucide-react';
 import { productAPI } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { getUserId, trackEvent } from '../utils/userTracking';
@@ -19,6 +19,14 @@ const Home = () => {
   const [electronics, setElectronics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedGender, setSelectedGender] = useState('');
+  const [sortBy, setSortBy] = useState('');
+  const [priceRange, setPriceRange] = useState([0, 100000]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
 
   // Category data with real category images - EXACT Meesho order
   const categoryData = [
@@ -45,6 +53,18 @@ const Home = () => {
     }
   ];
 
+  // Gender options
+  const genderOptions = ['Men', 'Women', 'Kids', 'Unisex'];
+
+  // Sort options
+  const sortOptions = [
+    { value: 'price_low', label: 'Price: Low to High' },
+    { value: 'price_high', label: 'Price: High to Low' },
+    { value: 'rating', label: 'Top Rated' },
+    { value: 'discount', label: 'Best Discount' },
+    { value: 'newest', label: 'Newest First' }
+  ];
+
   useEffect(() => {
     // Initialize user tracking
     const userId = getUserId();
@@ -52,6 +72,11 @@ const Home = () => {
     
     fetchProducts();
   }, []);
+
+  // Apply filters whenever filter criteria change
+  useEffect(() => {
+    applyFilters();
+  }, [products, selectedCategory, selectedGender, sortBy, priceRange]);
 
   const fetchProducts = async () => {
     try {
@@ -78,6 +103,7 @@ const Home = () => {
       }));
       
       setProducts(transformedProducts);
+      setFilteredProducts(transformedProducts);
       
       // Filter products into different categories
       // Mobile phones
@@ -145,6 +171,62 @@ const Home = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...products];
+    
+    // Apply category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(product => 
+        product.category && product.category.toLowerCase().includes(selectedCategory.toLowerCase())
+      );
+    }
+    
+    // Apply gender filter
+    if (selectedGender) {
+      filtered = filtered.filter(product => 
+        (product.category && product.category.toLowerCase().includes(selectedGender.toLowerCase())) ||
+        (product.name && product.name.toLowerCase().includes(selectedGender.toLowerCase()))
+      );
+    }
+    
+    // Apply price range filter
+    filtered = filtered.filter(product => 
+      product.price >= priceRange[0] && product.price <= priceRange[1]
+    );
+    
+    // Apply sorting
+    switch (sortBy) {
+      case 'price_low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price_high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        filtered.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'discount':
+        filtered.sort((a, b) => b.discount - a.discount);
+        break;
+      case 'newest':
+        // Assuming products have a createdAt field, otherwise sort by ID
+        filtered.sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+        break;
+      default:
+        // Default sorting (by ID or name)
+        break;
+    }
+    
+    setFilteredProducts(filtered);
+  };
+
+  const resetFilters = () => {
+    setSelectedCategory('');
+    setSelectedGender('');
+    setSortBy('');
+    setPriceRange([0, 100000]);
   };
 
   const handleWishlistClick = (e, product) => {
@@ -499,19 +581,100 @@ const Home = () => {
           
           {/* Filter Bar */}
           <div className="flex gap-2 mb-3 overflow-x-auto pb-2">
-            <button className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700">
-              ↑↓ Sort
+            <button 
+              className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700 flex items-center"
+              onClick={() => setSortBy(sortBy === 'price_low' ? 'price_high' : 'price_low')}
+            >
+              <span>↑↓ Sort</span>
             </button>
-            <button className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700">
-              Category ▼
+            <button 
+              className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700 flex items-center"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <span>Category ▼</span>
             </button>
-            <button className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700">
-              Gender ▼
+            <button 
+              className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700 flex items-center"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <span>Gender ▼</span>
             </button>
-            <button className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700">
-              ⚙ Filters
+            <button 
+              className="text-xs px-2 py-1 border border-gray-300 rounded-full whitespace-nowrap text-gray-700 flex items-center"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={12} className="mr-1" />
+              <span>Filters</span>
             </button>
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <div className="bg-white border border-gray-200 rounded-lg p-3 mb-3">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="font-medium text-gray-900">Filters</h4>
+                <button 
+                  onClick={resetFilters}
+                  className="text-xs text-purple-600"
+                >
+                  Reset
+                </button>
+              </div>
+              
+              {/* Category Filter */}
+              <div className="mb-3">
+                <label className="text-xs font-medium text-gray-700 mb-1 block">Category</label>
+                <select 
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full text-xs border border-gray-300 rounded p-1"
+                >
+                  <option value="">All Categories</option>
+                  <option value="Electronics">Electronics</option>
+                  <option value="Fashion">Fashion</option>
+                  <option value="Home">Home & Kitchen</option>
+                  <option value="Mobile">Mobile Phones</option>
+                </select>
+              </div>
+              
+              {/* Gender Filter */}
+              <div className="mb-3">
+                <label className="text-xs font-medium text-gray-700 mb-1 block">Gender</label>
+                <select 
+                  value={selectedGender}
+                  onChange={(e) => setSelectedGender(e.target.value)}
+                  className="w-full text-xs border border-gray-300 rounded p-1"
+                >
+                  <option value="">All</option>
+                  {genderOptions.map(gender => (
+                    <option key={gender} value={gender}>{gender}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Sort By */}
+              <div className="mb-3">
+                <label className="text-xs font-medium text-gray-700 mb-1 block">Sort By</label>
+                <select 
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full text-xs border border-gray-300 rounded p-1"
+                >
+                  <option value="">Default</option>
+                  {sortOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <button 
+                onClick={() => setShowFilters(false)}
+                className="w-full bg-purple-600 text-white text-xs py-1.5 rounded"
+              >
+                Apply Filters
+              </button>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
@@ -527,9 +690,9 @@ const Home = () => {
           )}
 
           {/* Products Grid */}
-          {products.length > 0 ? (
+          {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
-              {products.slice(0, 20).map((product) => (
+              {filteredProducts.slice(0, 20).map((product) => (
                 <ProductCard key={product.id || product._id} product={product} />
               ))}
             </div>
@@ -737,12 +900,59 @@ const Home = () => {
           </div>
         )}
 
-        {/* Products Section */}
-        <div>
-          <h2 className="text-2xl font-bold mb-4 text-gray-900">Products For You</h2>
-          {products.length > 0 ? (
+        {/* Products Section with Filters */}
+        <div className="mt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Products For You</h2>
+            
+            {/* Desktop Filters */}
+            <div className="flex gap-3">
+              <select 
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm"
+              >
+                <option value="">All Categories</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Fashion">Fashion</option>
+                <option value="Home">Home & Kitchen</option>
+                <option value="Mobile">Mobile Phones</option>
+              </select>
+              
+              <select 
+                value={selectedGender}
+                onChange={(e) => setSelectedGender(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm"
+              >
+                <option value="">All Genders</option>
+                {genderOptions.map(gender => (
+                  <option key={gender} value={gender}>{gender}</option>
+                ))}
+              </select>
+              
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1 text-sm"
+              >
+                <option value="">Sort By</option>
+                {sortOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              
+              <button 
+                onClick={resetFilters}
+                className="border border-gray-300 rounded px-3 py-1 text-sm text-purple-600"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+          
+          {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-4 gap-4">
-              {products.map((product) => (
+              {filteredProducts.map((product) => (
                 <ProductCard key={product.id || product._id} product={product} />
               ))}
             </div>

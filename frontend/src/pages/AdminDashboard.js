@@ -172,9 +172,9 @@ const AdminDashboard = () => {
       };
     } catch (error) {
       console.error('Error uploading files:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to upload files';
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to upload files';
       setUploadErrors([errorMessage]);
-      throw error;
+      throw new Error(`Upload failed: ${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -239,7 +239,8 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('Error saving product:', error);
       console.error('Error response:', error.response);
-      alert('Error saving product: ' + (error.response?.data?.detail || error.message || 'Unknown error'));
+      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || 'Unknown error';
+      alert('Error saving product: ' + errorMessage);
     }
   };
 

@@ -34,8 +34,8 @@ async def register(user_data: UserCreate, db: AsyncIOMotorDatabase = Depends(get
     
     await db.users.insert_one(user.dict())
     
-    # Create token
-    token = create_access_token(data={"user_id": user.id, "email": user.email})
+    # Create token with role information
+    token = create_access_token(data={"user_id": user.id, "email": user.email, "role": user.role})
     
     return {
         "token": token,
@@ -59,8 +59,8 @@ async def login(credentials: UserLogin, db: AsyncIOMotorDatabase = Depends(get_d
             detail="Invalid email or password"
         )
     
-    # Create token
-    token = create_access_token(data={"user_id": user_data["id"], "email": user_data["email"]})
+    # Create token with role information
+    token = create_access_token(data={"user_id": user_data["id"], "email": user_data["email"], "role": user_data["role"]})
     
     user_response = UserResponse(**user_data)
     

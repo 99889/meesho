@@ -5,6 +5,7 @@ const API = `${BACKEND_URL}/api`;
 
 // Set up axios defaults
 axios.defaults.headers.common['Content-Type'] = 'application/json';
+axios.defaults.baseURL = BACKEND_URL;
 
 // Add request interceptor to add token
 axios.interceptors.request.use(
@@ -16,6 +17,15 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor to handle errors globally
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response || error.message);
     return Promise.reject(error);
   }
 );
