@@ -26,6 +26,7 @@ import Account from "./pages/Account";
 import Help from "./pages/Help";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminOrders from "./pages/AdminOrders";
+import PaymentPage from "./pages/PaymentPage";
 
 // Conditional Bottom Navigation Component
 const ConditionalBottomNav = () => {
@@ -67,6 +68,7 @@ function App() {
                 <Route path="/help" element={<Help />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/orders" element={<AdminOrders />} />
+                <Route path="/payment" element={<PaymentPage />} />
               </Routes>
             </main>
             <ConditionalBottomNav />

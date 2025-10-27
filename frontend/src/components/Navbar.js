@@ -67,7 +67,7 @@ const Navbar = () => {
 
           {/* Logo */}
           <Link to="/" className="flex items-center">
-            <div className="text-xl font-bold text-[#7a1660]">meesho</div>
+            <div className="text-xl font-bold text-[#4a1e41]">meesho</div>
           </Link>
 
           {/* Spacer */}
@@ -134,7 +134,7 @@ const Navbar = () => {
           <div className="flex items-center gap-4">
             {/* Logo - Left aligned */}
             <Link to="/" className="flex items-center">
-              <div className="text-2xl font-bold text-[#9c1c80]">Meesho</div>
+              <div className="text-2xl font-bold text-[#6e2e61]">Meesho</div>
             </Link>
 
             {/* Search Bar */}

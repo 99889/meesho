@@ -150,64 +150,174 @@ const Checkout = () => {
       });
       
       if (formData.paymentMethod === 'upi') {
-        // Generate UPI payment link with the order amount
+        // Initiate UPI payment
         const amount = appliedCoupon ? appliedCoupon.finalAmount : getCartTotal();
-        const paymentLink = `https://pay0.shop/paylink?link=2353&amt=${amount}`;
         
-        // Track UPI payment initiated
-        trackEvent('upi_payment_initiated', {
-          orderId: result.order?.id,
-          userId: isGuest ? result.guest_user_id : userId,
+        // Use a test UPI ID for demo purposes
+        const upiId = 'test@upi'; // In production, this would come from user input
+        
+        const paymentResponse = await paymentAPI.initiateUPI({
+          upi_id: upiId,
           amount: amount,
-          paymentLink: paymentLink
+          order_id: result.order.id
         });
 
-        // Open payment link in new window
-        const paymentWindow = window.open(paymentLink, '_blank', 'width=500,height=700');
+        // Track UPI payment initiated
+        trackEvent('upi_payment_initiated', {
+          orderId: result.order.id,
+          userId: isGuest ? result.guest_user_id : userId,
+          amount: amount,
+          transactionId: paymentResponse.transaction_id
+        });
+
+        // Prepare order details for payment page
+        const orderDetails = {
+          orderId: result.order.id,
+          amount: amount,
+          productName: cart.length === 1 ? cart[0].name : null,
+          itemCount: cart.length,
+          transactionId: paymentResponse.transaction_id
+        };
+
+        // Open custom payment page in new window
+        const paymentWindow = window.open(
+          `/payment`, 
+          '_blank', 
+          'width=500,height=700,scrollbars=yes,resizable=yes'
+        );
         
+        // Send order details to payment window
+        const sendOrderDetails = () => {
+          if (paymentWindow && !paymentWindow.closed) {
+            try {
+              paymentWindow.postMessage({
+                type: 'ORDER_DETAILS',
+                orderDetails: orderDetails,
+                qrCodeUrl: paymentResponse.qr_code
+              }, '*');
+            } catch (error) {
+              console.error('Error sending order details:', error);
+            }
+          }
+        };
+        
+        // Send details when window is loaded
+        paymentWindow.onload = sendOrderDetails;
+        
+        // Also send details after a short delay to ensure the page is ready
+        setTimeout(sendOrderDetails, 1000);
+
         toast({
           title: 'Redirecting to Payment',
           description: 'Please complete the payment in the new window'
         });
 
-        // Poll for payment completion
-        const checkPayment = setInterval(async () => {
-          try {
-            // Check if payment window is closed
-            if (paymentWindow && paymentWindow.closed) {
-              clearInterval(checkPayment);
-              
-              // Verify payment status
-              // In production, you'd check with your backend
-              // For now, show confirmation after window closes
-              
-              trackEvent('upi_payment_completed', {
-                orderId: result.order?.id,
-                userId: isGuest ? result.guest_user_id : userId,
-                amount: amount
-              });
+        // Listen for messages from payment window
+        const handleMessage = async (event) => {
+          if (event.data && event.data.type) {
+            switch (event.data.type) {
+              case 'PAYMENT_SUCCESS':
+                // Verify payment status with backend
+                try {
+                  const verificationResponse = await paymentAPI.verifyPayment({
+                    transaction_id: paymentResponse.transaction_id,
+                    order_id: result.order.id,
+                    status: 'completed'
+                  });
+                  
+                  trackEvent('upi_payment_verified', {
+                    orderId: result.order.id,
+                    userId: isGuest ? result.guest_user_id : userId,
+                    amount: amount,
+                    status: verificationResponse.payment_status
+                  });
 
-              // Show success modal
-              setOrderDetails({
-                orderId: result.order?.id,
-                amount: amount,
-                paymentMethod: 'UPI'
-              });
-              setShowSuccessModal(true);
-              clearCart();
+                  if (verificationResponse.success) {
+                    // Show success modal
+                    setOrderDetails({
+                      orderId: result.order.id,
+                      amount: amount,
+                      paymentMethod: 'UPI'
+                    });
+                    setShowSuccessModal(true);
+                    // Don't clear cart here, let the modal handle navigation
+                  } else {
+                    toast({
+                      title: 'Payment Failed',
+                      description: 'Payment verification failed. Please try again.',
+                      variant: 'destructive'
+                    });
+                  }
+                } catch (error) {
+                  console.error('Payment verification error:', error);
+                  toast({
+                    title: 'Verification Error',
+                    description: 'Failed to verify payment status.',
+                    variant: 'destructive'
+                  });
+                }
+                break;
+                
+              case 'PAYMENT_FAILED':
+                // Verify payment status with backend (should be failed)
+                try {
+                  const verificationResponse = await paymentAPI.verifyPayment({
+                    transaction_id: paymentResponse.transaction_id,
+                    order_id: result.order.id,
+                    status: 'failed'
+                  });
+                  
+                  trackEvent('upi_payment_failed', {
+                    orderId: result.order.id,
+                    userId: isGuest ? result.guest_user_id : userId,
+                    amount: amount,
+                    status: verificationResponse.payment_status
+                  });
+
+                  toast({
+                    title: 'Payment Failed',
+                    description: 'Payment was not completed. Please try again or choose another payment method.',
+                    variant: 'destructive'
+                  });
+                } catch (error) {
+                  console.error('Payment verification error:', error);
+                  toast({
+                    title: 'Verification Error',
+                    description: 'Failed to verify payment status.',
+                    variant: 'destructive'
+                  });
+                }
+                break;
+                
+              case 'PAYMENT_CANCELLED':
+                toast({
+                  title: 'Payment Cancelled',
+                  description: 'You have cancelled the payment.',
+                  variant: 'destructive'
+                });
+                break;
             }
-          } catch (error) {
-            console.error('Payment check error:', error);
+            
+            // Remove event listener
+            window.removeEventListener('message', handleMessage);
           }
-        }, 1000);
+        };
+        
+        // Add event listener for messages from payment window
+        window.addEventListener('message', handleMessage);
 
-        // Timeout after 10 minutes
+        // Cleanup function to remove event listener
+        const cleanup = () => {
+          window.removeEventListener('message', handleMessage);
+        };
+
+        // Close payment window and cleanup if needed after timeout
         setTimeout(() => {
-          clearInterval(checkPayment);
           if (paymentWindow && !paymentWindow.closed) {
             paymentWindow.close();
           }
-        }, 600000);
+          cleanup();
+        }, 600000); // 10 minutes timeout
       } else {
         // Show success modal for COD
         setOrderDetails({

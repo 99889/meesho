@@ -45,7 +45,15 @@ async def initiate_upi_payment(
     # 3. Return payment URL or QR code
     
     # For demo, we'll return a mock payment URL
-    payment_url = f"upi://pay?pa={payment_data.upi_id}&pn=Meesho&am={payment_data.amount}&tn=Order{payment_data.order_id}&tr={transaction_id}"
+    # Include more detailed information in the UPI URL
+    payment_note = f"Meesho Order #{payment_data.order_id[:8]}"
+    # Ensure proper UPI URL format with all required parameters
+    payment_url = f"upi://pay?pa={payment_data.upi_id}&pn={payment_note}&am={payment_data.amount}&tn=Order{payment_data.order_id}&tr={transaction_id}"
+    
+    # Create a more detailed QR code with order information
+    # Use url encoding for the data
+    import urllib.parse
+    qr_data = f"upi://pay?pa={payment_data.upi_id}&pn={urllib.parse.quote(payment_note)}&am={payment_data.amount}&tn=Order{payment_data.order_id}&tr={transaction_id}"
     
     # Update order with payment details
     await db.orders.update_one(
@@ -54,7 +62,8 @@ async def initiate_upi_payment(
             "$set": {
                 "payment_details": {
                     "upi_id": payment_data.upi_id,
-                    "transaction_id": transaction_id
+                    "transaction_id": transaction_id,
+                    "amount": payment_data.amount
                 },
                 "payment_status": "pending",
                 "updated_at": datetime.utcnow()
@@ -66,7 +75,9 @@ async def initiate_upi_payment(
         "success": True,
         "transaction_id": transaction_id,
         "payment_url": payment_url,
-        "qr_code": f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={payment_url}",
+        "qr_code": f"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={urllib.parse.quote(qr_data)}",
+        "amount": payment_data.amount,
+        "order_id": payment_data.order_id,
         "message": "Payment initiated. Complete payment using UPI app"
     }
 
@@ -84,14 +95,17 @@ async def verify_payment(
         raise HTTPException(status_code=404, detail="Order not found")
     
     # In production, verify with payment gateway
-    # For demo, we'll accept the status from frontend
+    # For demo, we'll accept the status from frontend and simulate a successful payment
+    # In a real implementation, you would check with the payment gateway API
     
+    # Use the status sent from frontend instead of always assuming success
     payment_status = verification.status.lower()
     if payment_status not in ['completed', 'failed', 'pending']:
         payment_status = 'failed'
     
     order_status = 'confirmed' if payment_status == 'completed' else 'pending'
     
+    # Update order with payment status
     await db.orders.update_one(
         {"id": verification.order_id},
         {

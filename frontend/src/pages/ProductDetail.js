@@ -123,15 +123,11 @@ const ProductDetail = () => {
   }
 
   const handleAddToCart = () => {
-    if (product.sizes && product.sizes.length > 1 && !selectedSize) {
-      alert('Please select a size');
-      return;
-    }
-    if (product.colors && product.colors.length > 1 && !selectedColor) {
-      alert('Please select a color');
-      return;
-    }
-    addToCart(product, quantity, selectedSize || (product.sizes && product.sizes[0]), selectedColor || (product.colors && product.colors[0]));
+    // Automatically select first available option if not selected
+    const sizeToUse = selectedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : null);
+    const colorToUse = selectedColor || (product.colors && product.colors.length > 0 ? product.colors[0] : null);
+    
+    addToCart(product, quantity, sizeToUse, colorToUse);
   };
 
   const handleShare = () => {
